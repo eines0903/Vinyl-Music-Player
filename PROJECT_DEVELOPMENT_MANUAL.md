@@ -25,6 +25,8 @@
   - [維修 8：循環播放模式控制 (自動下一首 / 單曲循環 / 播完停止)](#維修-8循環播放模式控制-自動下一首--單曲循環--播完停止)
   - [維修 9：PWA 離線支援與 IndexedDB v2 音訊離線快取](#維修-9pwa-離線支援與-indexeddb-v2-音訊離線快取)
   - [維修 10：播放器名稱一鍵自訂重新命名 (One-Click Player Renaming)](#維修-10播放器名稱一鍵自訂重新命名-one-click-player-renaming)
+  - [維修 11：用戶問題回饋系統與每月試算表匯出 (Feedback System & Monthly CSV Export)](#維修-11用戶問題回饋系統與每月試算表匯出-feedback-system--monthly-csv-export)
+  - [維修 12：按鍵外觀、排列次序與全域快捷鍵個人化設定系統 (Buttons & Shortcuts Customization)](#維修-12按鍵外觀排列次序與全域快捷鍵個人化設定系統-buttons--shortcuts-customization)
 - [五、核心模組與完整程式碼檔案清單](#五核心模組與完整程式碼檔案清單)
 - [六、後續維護、測試與更新標準作業程序 (SOP)](#六後續維護測試與更新標準作業程序-sop)
 
@@ -419,6 +421,25 @@ const handleTrackEnded = useCallback(() => {
 
 ---
 
+### 維修 11：用戶問題回饋系統與每月試算表匯出 (Feedback System & Monthly CSV Export)
+* **需求來源**：使用者希望能在播放器內收集用戶回饋與問題，並且每個月能以試算表（Excel / Google Sheets）匯出統計。
+* **具體修訂**：
+  1. 升級 `src/utils/indexedDb.ts` 至 `DB_VERSION = 3`，新增 `feedback` 物件存放區，並實作 `saveFeedbackToDB`、`loadAllFeedbackFromDB`、`deleteFeedbackFromDB` 與 `clearAllFeedbackFromDB`。
+  2. 建立 `src/types/feedback.ts`，定義 `FeedbackItem` 型別，包含 `monthKey`（如 `2026-10`）、滿意度星級 `rating`、`userName`、`contact`、`content` 與除錯用 `deviceInfo`。
+  3. 實作 `src/utils/feedbackExport.ts`，依據選定月份聚合篩選資料，將回饋轉為標準 RFC 4180 CSV 格式，並前綴 `\uFEFF`（UTF-8 BOM），保證 Microsoft Excel、Google 試算表與 Numbers 開啟繁體中文絕對不亂碼。
+  4. 建立 `src/components/FeedbackModal.tsx`，提供「✍️ 填寫回饋問題」與「📊 回饋管理與試算表匯出」雙標籤面板，並於頂部動作列與頁尾提供啟動按鈕。
+
+### 維修 12：按鍵外觀、排列次序與全域快捷鍵個人化設定系統 (Buttons & Shortcuts Customization)
+* **需求來源**：使用者希望可以自訂頂部功能按鍵（如安裝 App、迷你黑膠、用戶回饋、YouTube、匯入 MP3 等）的顯示順序、自訂文字標籤、更換膠囊或方角外觀、切換配色主題，並能自訂鍵盤快捷鍵。
+* **具體修訂**：
+  1. 建立 `src/types/customButtons.ts`，定義 `TopButtonItemConfig`、`ButtonBarConfig`、`ButtonShape`（膠囊/卡片/方角）、`ButtonStyleTheme`（經典繽紛/極簡黑透/復古琥珀金/霓虹電光）與 `ShortcutKeyConfig`。
+  2. 實作 `src/hooks/useButtonSettings.ts`，負責設定的 LocalStorage 持久化保存與一鍵重置。
+  3. 升級 `src/hooks/useKeyboardShortcuts.ts`，支援動態自訂快速鍵設定與 `M` 鍵切換桌面迷你黑膠。
+  4. 升級 `src/components/BatchUploader.tsx`，支援自訂樣式、標籤與 Render Prop。
+  5. 建立 `src/components/ButtonSettingsModal.tsx`，提供即時動態預覽、按鈕順序上移/下移、文字修改、隱藏啟用開關以及即時鍵盤鍵位錄製功能。
+
+---
+
 ## 五、核心模組與完整程式碼檔案清單
 
 專案目錄重點檔案職責說明：
@@ -426,6 +447,8 @@ const handleTrackEnded = useCallback(() => {
 vinyl-music-player/
 ├── src/
 │   ├── components/
+│   │   ├── ButtonSettingsModal.tsx   # 按鍵排序、文字、外觀與快捷鍵個人化設定彈窗
+│   │   ├── FeedbackModal.tsx         # 用戶回饋表單與每月試算表匯出彈窗
 │   │   ├── MiniPlayer.tsx            # 桌面寵物大小的懸浮黑膠小播放器
 │   │   ├── PlaylistDrawer.tsx        # 播放清單管理抽屜 (支援 🔻/🔺 折疊與清單切換)
 │   │   ├── SortModal.tsx             # 歌曲排序方式選單 (完全還原特定樣式)
@@ -441,13 +464,15 @@ vinyl-music-player/
 │   │   ├── usePlaylistManager.ts     # 清單切換/洗牌/排序/播放次數統計
 │   │   └── useKeyboardShortcuts.ts   # 空白鍵播放、左右方向鍵切歌
 │   ├── utils/
-│   │   ├── indexedDb.ts              # IndexedDB v2 本機永久資料庫
+│   │   ├── indexedDb.ts              # IndexedDB v3 本機永久資料庫 (歌曲/清單/回饋)
+│   │   ├── feedbackExport.ts         # UTF-8 BOM CSV 試算表匯出模組
 │   │   ├── lyricSearch.ts            # LRCLIB 全球開放歌詞查詢工具
 │   │   ├── coverSearch.ts            # Apple Music 封面查詢與 YT 縮圖解析
 │   │   ├── lyricParser.ts            # 正則毫秒級 LRC 動態歌詞解析器
 │   │   └── shuffle.ts                # Fisher-Yates 真隨機洗牌演算法
 │   ├── types/
-│   │   └── song.ts                   # SongItem, Playlist, PlaybackMode 型別定義
+│   │   ├── song.ts                   # SongItem, Playlist, PlaybackMode 型別定義
+│   │   └── feedback.ts               # FeedbackItem, FeedbackType 型別定義
 │   ├── App.tsx                       # 全域應用程式主入口與版面響應式排版
 │   └── main.tsx                      # React 根節點渲染
 ├── scripts/

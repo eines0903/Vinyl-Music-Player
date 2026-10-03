@@ -15,6 +15,10 @@ import { LyricModal } from './components/LyricModal';
 import { SortModal } from './components/SortModal';
 import { ListeningReportModal } from './components/ListeningReportModal';
 import { MiniPlayer } from './components/MiniPlayer';
+import { FeedbackModal } from './components/FeedbackModal';
+import { ButtonSettingsModal } from './components/ButtonSettingsModal';
+import { useButtonSettings } from './hooks/useButtonSettings';
+import type { ButtonShape, ButtonStyleTheme } from './types/customButtons';
 import {
   loadAllSongsFromDB,
   deleteSongFromDB,
@@ -30,6 +34,17 @@ export default function App() {
   const [isLyricModalOpen, setIsLyricModalOpen] = useState(false);
   const [isSortModalOpen, setIsSortModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isButtonSettingsModalOpen, setIsButtonSettingsModalOpen] = useState(false);
+
+  // 用戶按鍵與快捷鍵個人化設定管理
+  const {
+    buttonBarConfig,
+    shortcuts,
+    saveButtonBarConfig,
+    saveShortcuts,
+    resetAllSettings,
+  } = useButtonSettings();
 
   // 隱藏歌曲清單，只留播放中的歌曲 (🔻/🔺 按鈕控制)
   const [isPlaylistCollapsed, setIsPlaylistCollapsed] = useState(false);
@@ -225,6 +240,8 @@ export default function App() {
     onTogglePlay: handleTogglePlay,
     onNext: onNext,
     onPrev: onPrev,
+    onToggleMini: () => setIsMiniPlayerOpen((prev) => !prev),
+    customShortcuts: shortcuts,
   });
 
   const lyricData = parseLyrics(currentSong?.lrcContent || '');
@@ -283,6 +300,60 @@ export default function App() {
   const handleAddYouTubeSong = async (newSong: SongItem) => {
     addSongs([newSong]);
     await saveSongToDB(newSong);
+  };
+
+  const getButtonShapeClass = (shape: ButtonShape) => {
+    if (shape === 'pill') return 'rounded-full';
+    if (shape === 'squircle') return 'rounded-2xl';
+    return 'rounded-xl';
+  };
+
+  const getButtonThemeClass = (
+    theme: ButtonStyleTheme,
+    btnId: string,
+    isActive?: boolean
+  ) => {
+    if (theme === 'minimal') {
+      return isActive
+        ? 'bg-zinc-700 text-white border border-zinc-500 shadow-md'
+        : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 shadow-sm';
+    }
+    if (theme === 'amber') {
+      return isActive
+        ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold border border-amber-300 shadow-lg shadow-amber-500/30'
+        : 'bg-gradient-to-r from-amber-700/80 to-amber-800/80 hover:from-amber-600 hover:to-amber-700 text-amber-100 border border-amber-500/50 shadow-md';
+    }
+    if (theme === 'neon') {
+      return isActive
+        ? 'bg-zinc-900 border border-pink-500 text-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.5)]'
+        : 'bg-zinc-900 border border-cyan-500/70 text-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.25)] hover:border-pink-400 hover:text-pink-300';
+    }
+
+    // 預設 vibrant 經典鮮明配色 (原截圖款)
+    switch (btnId) {
+      case 'install':
+        return 'bg-indigo-600 hover:bg-indigo-500 text-white';
+      case 'mini':
+        return isActive
+          ? 'bg-emerald-600 border border-emerald-400 text-white shadow-emerald-500/30 shadow-md'
+          : 'bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-700 text-zinc-200';
+      case 'feedback':
+        return 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40';
+      case 'youtube':
+        return 'bg-red-600/90 hover:bg-red-500 text-white';
+      case 'upload':
+        return 'bg-indigo-600 hover:bg-indigo-500 text-white';
+      case 'report':
+        return 'bg-emerald-600/90 hover:bg-emerald-500 text-white';
+      case 'sort':
+        return 'bg-purple-600/90 hover:bg-purple-500 text-white';
+      case 'shuffle':
+        return isShuffle
+          ? 'bg-amber-500 text-black border border-amber-300 font-bold shadow-amber-500/30 shadow-md'
+          : 'bg-pink-600/90 hover:bg-pink-500 text-white';
+      default:
+        return 'bg-zinc-800 text-white';
+    }
   };
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -407,41 +478,162 @@ export default function App() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* PWA 離線應用程式安裝按鈕 */}
-          {deferredPrompt && (
-            <button
-              onClick={handleInstallApp}
-              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition shadow flex items-center gap-1.5"
-              title="安裝為獨立桌面/手機離線應用程式"
-            >
-              <span>📲</span>
-              <span>安裝離線 App</span>
-            </button>
-          )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {buttonBarConfig.buttons
+            .filter((btn) => btn.enabled)
+            .map((btn) => {
+              const shapeClass = getButtonShapeClass(buttonBarConfig.shape);
 
-          {/* 桌面寵物黑膠迷你播放器開關按鈕 */}
-          <button
-            onClick={() => setIsMiniPlayerOpen(!isMiniPlayerOpen)}
-            className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition shadow-md flex items-center gap-1.5 border ${
-              isMiniPlayerOpen
-                ? 'bg-emerald-600 border-emerald-400 text-white'
-                : 'bg-zinc-800/90 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
-            }`}
-            title="開啟/收合桌面寵物大小的迷你黑膠播放器"
-          >
-            <span className="text-sm">🗗</span>
-            <span>{isMiniPlayerOpen ? '關閉迷你小窗' : '桌面迷你黑膠'}</span>
-          </button>
+              switch (btn.id) {
+                case 'install':
+                  if (!deferredPrompt) return null;
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={handleInstallApp}
+                      className={`px-3.5 py-2 text-xs font-semibold shadow-md flex items-center gap-1.5 transition active:scale-95 ${shapeClass} ${getButtonThemeClass(
+                        buttonBarConfig.styleTheme,
+                        btn.id
+                      )}`}
+                      title="安裝為獨立桌面/手機離線應用程式"
+                    >
+                      <span className="text-sm">{btn.icon}</span>
+                      <span>{btn.label}</span>
+                    </button>
+                  );
 
+                case 'mini':
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={() => setIsMiniPlayerOpen(!isMiniPlayerOpen)}
+                      className={`px-3.5 py-2 text-xs font-semibold shadow-md flex items-center gap-1.5 transition active:scale-95 border ${shapeClass} ${getButtonThemeClass(
+                        buttonBarConfig.styleTheme,
+                        btn.id,
+                        isMiniPlayerOpen
+                      )}`}
+                      title="開啟/收合桌面寵物大小的迷你黑膠播放器"
+                    >
+                      <span className="text-sm">{btn.icon}</span>
+                      <span>{isMiniPlayerOpen ? '關閉迷你小窗' : btn.label}</span>
+                    </button>
+                  );
+
+                case 'feedback':
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={() => setIsFeedbackModalOpen(true)}
+                      className={`px-3.5 py-2 text-xs font-semibold shadow-md flex items-center gap-1.5 transition active:scale-95 border ${shapeClass} ${getButtonThemeClass(
+                        buttonBarConfig.styleTheme,
+                        btn.id
+                      )}`}
+                      title="用戶問題回報與功能建議 (支援每月試算表匯出)"
+                    >
+                      <span className="text-sm">{btn.icon}</span>
+                      <span>{btn.label}</span>
+                    </button>
+                  );
+
+                case 'youtube':
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={() => setIsYouTubeModalOpen(true)}
+                      className={`px-3.5 py-2 text-xs font-semibold shadow-md flex items-center gap-1.5 transition active:scale-95 ${shapeClass} ${getButtonThemeClass(
+                        buttonBarConfig.styleTheme,
+                        btn.id
+                      )}`}
+                      title="連接 YouTube MV 或音訊"
+                    >
+                      <span className="text-sm">{btn.icon}</span>
+                      <span>{btn.label}</span>
+                    </button>
+                  );
+
+                case 'upload':
+                  return (
+                    <BatchUploader key={btn.id} onSongsAdded={addSongs}>
+                      {(trigger, isProcessing) => (
+                        <button
+                          onClick={trigger}
+                          disabled={isProcessing}
+                          className={`px-3.5 py-2 text-xs font-semibold shadow-md flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50 ${shapeClass} ${getButtonThemeClass(
+                            buttonBarConfig.styleTheme,
+                            btn.id
+                          )}`}
+                          title="匯入本機多首 MP3 檔案"
+                        >
+                          <span className="text-sm">{btn.icon}</span>
+                          <span>{isProcessing ? '儲存解析中...' : btn.label}</span>
+                        </button>
+                      )}
+                    </BatchUploader>
+                  );
+
+                case 'report':
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={() => setIsReportModalOpen(true)}
+                      className={`px-3.5 py-2 text-xs font-semibold shadow-md flex items-center gap-1.5 transition active:scale-95 ${shapeClass} ${getButtonThemeClass(
+                        buttonBarConfig.styleTheme,
+                        btn.id
+                      )}`}
+                      title="查看個人黑膠聆聽報告與熱門統計"
+                    >
+                      <span className="text-sm">{btn.icon}</span>
+                      <span>{btn.label}</span>
+                    </button>
+                  );
+
+                case 'sort':
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={() => setIsSortModalOpen(true)}
+                      className={`px-3.5 py-2 text-xs font-semibold shadow-md flex items-center gap-1.5 transition active:scale-95 ${shapeClass} ${getButtonThemeClass(
+                        buttonBarConfig.styleTheme,
+                        btn.id
+                      )}`}
+                      title="切換歌曲排序方式"
+                    >
+                      <span className="text-sm">{btn.icon}</span>
+                      <span>{btn.label}</span>
+                    </button>
+                  );
+
+                case 'shuffle':
+                  return (
+                    <button
+                      key={btn.id}
+                      onClick={toggleShuffle}
+                      className={`px-3.5 py-2 text-xs font-semibold shadow-md flex items-center gap-1.5 transition active:scale-95 ${shapeClass} ${getButtonThemeClass(
+                        buttonBarConfig.styleTheme,
+                        btn.id,
+                        isShuffle
+                      )}`}
+                      title="隨機洗牌播放"
+                    >
+                      <span className="text-sm">{btn.icon}</span>
+                      <span>{btn.label}</span>
+                    </button>
+                  );
+
+                default:
+                  return null;
+              }
+            })}
+
+          {/* 調整按鍵個人化設定按鈕 */}
           <button
-            onClick={() => setIsYouTubeModalOpen(true)}
-            className="px-3.5 py-2 bg-red-600/90 hover:bg-red-500 text-white text-xs font-semibold rounded-xl transition shadow-md flex items-center gap-1.5"
+            onClick={() => setIsButtonSettingsModalOpen(true)}
+            className="px-2.5 py-2 text-zinc-400 hover:text-amber-300 hover:bg-white/10 rounded-xl transition flex items-center gap-1 text-xs border border-transparent hover:border-zinc-700 active:scale-95"
+            title="調整按鍵順序、自訂文字、形狀外觀與快捷鍵"
           >
-            <span className="text-sm">▶</span>
-            <span>連接 YouTube</span>
+            <span className="text-sm">⚙️</span>
+            <span className="hidden sm:inline text-[11px] font-medium">調整按鍵</span>
           </button>
-          <BatchUploader onSongsAdded={addSongs} />
         </div>
       </div>
 
@@ -763,11 +955,39 @@ export default function App() {
         onSaveLyric={handleSaveLyric}
       />
 
-      {/* 頁尾主創致敬標記 */}
-      <footer className="mt-8 text-center text-xs text-zinc-500 tracking-wider">
-        Designed & Built by{' '}
-        <span className="text-zinc-300 font-medium">温采穎</span> &{' '}
-        <span className="text-zinc-300 font-medium">蔡懷萱</span>
+      {/* 用戶回饋問題與每月試算表匯出彈窗 */}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+      />
+
+      {/* 按鍵與快捷鍵個人化設定彈窗 */}
+      <ButtonSettingsModal
+        isOpen={isButtonSettingsModalOpen}
+        onClose={() => setIsButtonSettingsModalOpen(false)}
+        config={buttonBarConfig}
+        shortcuts={shortcuts}
+        onSaveConfig={saveButtonBarConfig}
+        onSaveShortcuts={saveShortcuts}
+        onResetAll={resetAllSettings}
+      />
+
+      {/* 頁尾主創致敬標記與用戶回饋按鈕 */}
+      <footer className="mt-8 text-center text-xs text-zinc-500 tracking-wider flex flex-wrap items-center justify-center gap-3">
+        <div>
+          Designed & Built by{' '}
+          <span className="text-zinc-300 font-medium">温采穎</span> &{' '}
+          <span className="text-zinc-300 font-medium">蔡懷萱</span>
+        </div>
+        <span className="hidden sm:inline text-zinc-700">•</span>
+        <button
+          onClick={() => setIsFeedbackModalOpen(true)}
+          className="text-zinc-400 hover:text-amber-400 transition underline underline-offset-4 flex items-center gap-1"
+          title="回報問題或提供新功能建議"
+        >
+          <span>💬</span>
+          <span>問題回饋與每月報表</span>
+        </button>
       </footer>
     </div>
   );
