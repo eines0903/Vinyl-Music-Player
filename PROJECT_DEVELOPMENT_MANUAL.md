@@ -1,6 +1,8 @@
 # 🎵 線上黑膠音樂播放器 —— 完整開發、維修改正與好友協作共編手冊
 > **專案作者**：Designed & Built by **温采穎** & **蔡懷萱**  
-> **專案版本**：v2.0.0 (現代黑膠擬真、桌面寵物迷你模式、無廣告、自訂多清單、聆聽報告版)  
+> **專案版本**：v2.1.0 (一鍵自訂播放器名稱、PWA 離線播放、桌面寵物迷你模式、無廣告、自訂多清單、聆聽報告版)  
+> **開源代碼庫**：[https://github.com/eines0903/Vinyl-Music-Player](https://github.com/eines0903/Vinyl-Music-Player)  
+> **一鍵下載專案**：[https://github.com/eines0903/Vinyl-Music-Player/archive/refs/heads/main.zip](https://github.com/eines0903/Vinyl-Music-Player/archive/refs/heads/main.zip)  
 > **更新時間**：2026 年 10 月 3 日  
 
 ---
@@ -21,6 +23,8 @@
   - [維修 6：桌面寵物大小的迷你黑膠播放器 (Mini Player)](#維修-6桌面寵物大小的迷你黑膠播放器-mini-player)
   - [維修 7：隱藏歌曲清單，只留播放中黑膠卡片 (🔻/🔺 按鈕折疊)](#維修-7隱藏歌曲清單只留播放中黑膠卡片-🔻🔺-按鈕折疊)
   - [維修 8：循環播放模式控制 (自動下一首 / 單曲循環 / 播完停止)](#維修-8循環播放模式控制-自動下一首--單曲循環--播完停止)
+  - [維修 9：PWA 離線支援與 IndexedDB v2 音訊離線快取](#維修-9pwa-離線支援與-indexeddb-v2-音訊離線快取)
+  - [維修 10：播放器名稱一鍵自訂重新命名 (One-Click Player Renaming)](#維修-10播放器名稱一鍵自訂重新命名-one-click-player-renaming)
 - [五、核心模組與完整程式碼檔案清單](#五核心模組與完整程式碼檔案清單)
 - [六、後續維護、測試與更新標準作業程序 (SOP)](#六後續維護測試與更新標準作業程序-sop)
 
@@ -85,7 +89,7 @@ git commit -m "feat: initial commit of vinyl music player with mini pet mode & p
 git branch -M main
 
 # 5. 綁定遠端 GitHub 地址（請將 YOUR_USERNAME 換成您的 GitHub 帳號名稱）
-git remote add origin https://github.com/YOUR_USERNAME/vinyl-music-player.git
+git remote add origin https://github.com/eines0903/Vinyl-Music-Player.git
 
 # 6. 推送至 GitHub
 git push -u origin main
@@ -100,7 +104,7 @@ git push -u origin main
 好友只需在自己的電腦執行：
 ```powershell
 # 下載專案
-git clone https://github.com/YOUR_USERNAME/vinyl-music-player.git
+git clone https://github.com/eines0903/Vinyl-Music-Player.git
 
 # 進入資料夾
 cd vinyl-music-player
@@ -391,6 +395,27 @@ const handleTrackEnded = useCallback(() => {
   }
 }, [isYouTube]);
 ```
+
+---
+
+### 維修 9：PWA 離線支援與 IndexedDB v2 音訊離線快取
+* **需求來源**：使用者希望斷網或外出時依然可以開啟播放器並播放本機音樂庫。
+* **具體修訂**：
+  1. 新增 `public/manifest.json` 與 `public/sw.js`，快取靜態資源，支援 PWA 桌面及手機原生應用安裝。
+  2. 監聽 `window.addEventListener('beforeinstallprompt')`，於頂部提供「📲 安裝離線 App」按鈕。
+  3. 監聽 `online` / `offline` 狀態事件，斷網時呈現「📡 離線模式 (本機曲庫就緒)」提示。
+  4. 升級 `src/utils/indexedDb.ts`，將上傳的 MP3 二進位 Blob 完整保存，重新整理或無網路狀態下自動自 IndexedDB 重新構建播放 Blob URL。
+
+---
+
+### 維修 10：播放器名稱一鍵自訂重新命名 (One-Click Player Renaming)
+* **需求來源**：使用者希望可以自訂頂部播放器的名稱（如個人專屬、伴侶聯名或品牌名稱），一鍵重新命名。
+* **具體修訂**：
+  1. 在 `App.tsx` 設立 `playerName` 狀態，並自 `localStorage.getItem('vinyl_player_custom_name')` 讀取持久化值，預設為 `線上黑膠音樂播放器`。
+  2. 於頂部標頭提供專屬應用名稱展示與 `✏️ 重新命名` 按鈕，點擊名稱或按鈕立即啟動內嵌文字輸入框與 autoFocus。
+  3. 支援鍵盤快速鍵：**Enter** 鍵儲存、**Escape** 鍵取消，並提供「儲存」、「預設」（一鍵恢復為預設名）、「取消」快捷按鈕。
+  4. 當 `playerName` 變更時，自動更新瀏覽器分頁標題 `document.title = `${playerName} - Vinyl Player``。
+  5. 將 `playerName` 作為屬性傳遞至 `MiniPlayer.tsx`，讓桌面寵物懸浮小窗頂部同步顯示使用者自訂名稱。
 
 ---
 
